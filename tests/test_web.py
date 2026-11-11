@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from carhunt import cli
 from carhunt.store import Store
@@ -57,7 +58,7 @@ def data_of(html):
 
 def test_page_embeds_every_listing_with_state(tmp_path):
     store = build(tmp_path)
-    data = data_of(render_page(store, NOW))
+    data = data_of(render_page(store, NOW, ZoneInfo("America/New_York")))
     by_id = {x["id"]: x for x in data["listings"]}
     assert len(by_id) == 3
     assert by_id[1]["verdict"] == "worth_seeing" and by_id[1]["notified"] is True

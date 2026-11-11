@@ -14,7 +14,7 @@ from carhunt.analyze import (
     build_prompt,
     download_photos,
 )
-from carhunt.config import Settings
+from carhunt.config import SearchSettings, Settings
 from carhunt.models import Listing
 from carhunt.store import Store
 
@@ -124,6 +124,23 @@ def test_schema_strict_and_prompt_contents(env):
     p = build_prompt(l, [2500, 3100], "triage", ["photo_01.jpg"])
     assert "photo_01.jpg" in p and "2500, 3100" in p and "2010 Toyota Camry" in p
     assert "torque-converter" in p and "web search" not in p
+
+
+def test_prompt_names_the_configured_region_only(env):
+    _, l = env
+    p = build_prompt(l, [], "triage", [], "Austin, TX")
+    assert "Austin, TX" in p and "{region}" not in p
+    assert "Pittsburgh" not in p and "Питтсбург" not in p
+    default = build_prompt(l, [], "triage", [])
+    assert "Pittsburgh, PA" in default
+
+
+def test_analyze_passes_settings_region_to_prompt(env):
+    store, l = env
+    s = Settings(search=SearchSettings(region="Austin, TX"))
+    r = FakeRunner([canned("skip")])
+    analyze(l, store, r, FakeHttp(), s, "new")
+    assert "Austin, TX" in r.calls[0]["prompt"]
 
 
 def test_download_photos_skips_failures(tmp_path):

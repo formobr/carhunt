@@ -2,7 +2,7 @@ search:
   source_city: pittsburgh
   max_price: 6000
   min_price: 300
-  radius_km: 65
+  region: Pittsburgh, PA
 poll:
   interval_min: 15
   max_details_per_run: 30
@@ -19,3 +19,5 @@ ai:
   timeout_s: 240
 health:
   fail_runs_before_alert: 2
+report:
+  timezone: America/New_York

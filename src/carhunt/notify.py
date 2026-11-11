@@ -6,9 +6,8 @@ import os
 import re
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -17,7 +16,6 @@ from carhunt.models import Listing
 
 API = "https://api.telegram.org"
 TEXT_LIMIT = 4096
-NY = ZoneInfo("America/New_York")
 
 _TOKEN_RE = re.compile(r"bot\d+:[A-Za-z0-9_\-]+")
 
@@ -52,10 +50,10 @@ def _clip(value: object, n: int) -> str:
     return s if len(s) <= n else s[: max(n - 1, 0)] + "…"
 
 
-def _hhmm(dt: datetime) -> str:
+def _hhmm(dt: datetime, tz: tzinfo) -> str:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
-    return dt.astimezone(NY).strftime("%H:%M")
+    return dt.astimezone(tz).strftime("%H:%M")
 
 
 def format_header(
@@ -97,8 +95,9 @@ def format_card(
     detected_at: datetime,
     reason: str,
     old_price: int | None = None,
+    tz: tzinfo = UTC,
 ) -> str:
-    """Full alert text; nothing is clipped except the name."""
+    """Full alert text; nothing is clipped except the name. Times are shown in `tz`."""
     lines = [format_header(listing, verdict, reason, old_price)]
     if verdict.summary:
         lines.append(_esc(verdict.summary))
@@ -116,8 +115,8 @@ def format_card(
         title = "⚡ " + title
     lines += _bullets(title, verdict.questions_for_seller)
     lines += _bullets("Неизвестно:", verdict.facts_unknown)
-    pub = f" (опубл. {_hhmm(listing.published_at)})" if listing.published_at else ""
-    lines.append(f"Найдено {_hhmm(detected_at)}{pub}")
+    pub = f" (опубл. {_hhmm(listing.published_at, tz)})" if listing.published_at else ""
+    lines.append(f"Найдено {_hhmm(detected_at, tz)}{pub}")
     return "\n".join(lines)
 
 
@@ -159,7 +158,9 @@ class TelegramNotifier:
         chat_id: str,
         client: httpx.Client,
         sleep: Callable[[float], None] = time.sleep,
+        tz: tzinfo = UTC,
     ) -> None:
+        self._tz = tz
         self._token = token
         self._chat_id = chat_id
         self._client = client
@@ -213,7 +214,7 @@ class TelegramNotifier:
                 )
             except NotifyError:
                 pass
-        chunks = split_text(format_card(listing, verdict, detected_at, reason, old_price))
+        chunks = split_text(format_card(listing, verdict, detected_at, reason, old_price, self._tz))
         message_id = 0
         for i, chunk in enumerate(chunks):
             payload: dict[str, Any] = {

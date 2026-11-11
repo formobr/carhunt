@@ -26,7 +26,7 @@ def _poll() -> int:
             store,
             Fetcher(),
             lambda listing, reason: analyze(listing, store, runner, http, settings, reason),
-            TelegramNotifier(token, chat, tg),
+            TelegramNotifier(token, chat, tg, tz=settings.report.tz),
         )
     print(
         f"carhunt: cards={summary.cards} new={summary.new} analyzed={summary.analyzed} "
@@ -153,9 +153,10 @@ def _web(store, out: str, now: datetime) -> int:
     import tempfile
     from pathlib import Path
 
+    from .config import load_settings
     from .web import render_page
 
-    html = render_page(store, now)
+    html = render_page(store, now, load_settings().report.tz)
     dest = Path(out)
     dest.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=dest.parent, prefix=dest.name + ".", suffix=".tmp")

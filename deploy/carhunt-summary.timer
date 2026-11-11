@@ -1,8 +1,8 @@
 [Unit]
-Description=carhunt: daily summary at 09:00 New York
+Description=carhunt: daily summary at 09:00 (report.timezone)
 
 [Timer]
-OnCalendar=*-*-* 09:00:00 America/New_York
+OnCalendar=*-*-* 09:00:00 @TIMEZONE@
 Persistent=true
 
 [Install]

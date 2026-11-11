@@ -13,7 +13,9 @@ UNITS = [
 ]
 
 
-def _run(script: str, tmp_path: Path) -> tuple[subprocess.CompletedProcess, Path, Path]:
+def _run(
+    script: str, tmp_path: Path, extra_env: dict[str, str] | None = None
+) -> tuple[subprocess.CompletedProcess, Path, Path]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     calls = tmp_path / "systemctl.calls"
@@ -27,6 +29,7 @@ def _run(script: str, tmp_path: Path) -> tuple[subprocess.CompletedProcess, Path
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "XDG_CONFIG_HOME": str(tmp_path),
+        **(extra_env or {}),
     }
     proc = subprocess.run(
         ["bash", str(DEPLOY / script)],
@@ -51,13 +54,25 @@ def test_install_renders_units_and_enables_timers(tmp_path):
         text = (dest / name).read_text()
         assert "@CLAUDE_DIR@" not in text
         assert "@INTERVAL_MIN@" not in text
+        assert "@TIMEZONE@" not in text
 
     assert "OnUnitActiveSec=15min" in (dest / "carhunt-poll.timer").read_text()
+    assert "09:00:00 America/New_York" in (dest / "carhunt-summary.timer").read_text()
     assert str(bin_dir) in (dest / "carhunt-poll.service").read_text()
 
     lines = _calls(calls)
     assert "--user daemon-reload" in lines
     assert "--user enable --now carhunt-poll.timer carhunt-summary.timer" in lines
+
+
+def test_install_renders_summary_timer_in_report_timezone(tmp_path):
+    proc, _, _ = _run(
+        "install.sh", tmp_path, {"CARHUNT__REPORT__TIMEZONE": "America/Los_Angeles"}
+    )
+    assert proc.returncode == 0, proc.stderr
+    timer = (tmp_path / "systemd" / "user" / "carhunt-summary.timer").read_text()
+    assert "OnCalendar=*-*-* 09:00:00 America/Los_Angeles" in timer
+    assert "New_York" not in timer
 
 
 def test_uninstall_removes_units(tmp_path):

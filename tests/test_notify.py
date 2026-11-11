@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -60,8 +61,24 @@ def make_verdict(**kw):
     return Verdict(**base)
 
 
+def test_card_times_follow_report_timezone():
+    ny, la = ZoneInfo("America/New_York"), ZoneInfo("America/Los_Angeles")
+    args = (make_listing(), make_verdict(), DETECTED, "new")
+    assert format_card(*args, tz=ny).splitlines()[-1] == "Найдено 10:30 (опубл. 09:05)"
+    assert format_card(*args, tz=la).splitlines()[-1] == "Найдено 07:30 (опубл. 06:05)"
+
+
+def test_notifier_card_uses_its_timezone():
+    seen, handler = recorder()
+    la = ZoneInfo("America/Los_Angeles")
+    TelegramNotifier(TOKEN, "42", client_for(handler), tz=la).send_card(
+        make_listing(photos=[]), make_verdict(), DETECTED, "new"
+    )
+    assert seen[0][1]["text"].splitlines()[-1] == "Найдено 07:30 (опубл. 06:05)"
+
+
 def test_card_escapes_and_layout():
-    card = format_card(make_listing(), make_verdict(), DETECTED, "new")
+    card = format_card(make_listing(), make_verdict(), DETECTED, "new", tz=ZoneInfo("America/New_York"))
     assert "LX &lt;&amp;&gt;" in card
     assert "low miles &lt;5k &amp; clean" in card
     # only our own bold tags may contain raw angle brackets

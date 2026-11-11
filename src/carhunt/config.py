@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
@@ -16,7 +17,22 @@ class SearchSettings:
     source_city: str = "pittsburgh"
     max_price: int = 6000
     min_price: int = 300
-    radius_km: int = 65
+    region: str = "Pittsburgh, PA"
+
+
+@dataclass(frozen=True)
+class ReportSettings:
+    timezone: str = "America/New_York"
+
+    def __post_init__(self) -> None:
+        try:
+            ZoneInfo(self.timezone)
+        except (ZoneInfoNotFoundError, ValueError, TypeError, OSError) as exc:
+            raise ValueError(f"invalid report.timezone: {self.timezone!r}") from exc
+
+    @property
+    def tz(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone)
 
 
 @dataclass(frozen=True)
@@ -54,6 +70,7 @@ class Settings:
     poll: PollSettings = field(default_factory=PollSettings)
     notify: NotifySettings = field(default_factory=NotifySettings)
     health: HealthSettings = field(default_factory=HealthSettings)
+    report: ReportSettings = field(default_factory=ReportSettings)
 
 
 _SECTIONS = {f.name: f.default_factory for f in fields(Settings)}

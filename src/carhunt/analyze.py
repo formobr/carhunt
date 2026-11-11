@@ -16,7 +16,7 @@ from typing import Any, Literal
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from .config import Settings
+from .config import SearchSettings, Settings
 from .models import Listing
 from .store import Store
 
@@ -59,7 +59,13 @@ def _bounded(v: Verdict) -> None:
             raise ValueError(f"{name} out of range 0-100")
 
 
-def build_prompt(listing: Listing, comparables: list[int], stage: str, photos: list[str] | None = None) -> str:
+def build_prompt(
+    listing: Listing,
+    comparables: list[int],
+    stage: str,
+    photos: list[str] | None = None,
+    region: str = SearchSettings.region,
+) -> str:
     fields = [
         ("Title", listing.title),
         ("Price (USD)", listing.price),
@@ -75,8 +81,9 @@ def build_prompt(listing: Listing, comparables: list[int], stage: str, photos: l
     ]
     lines = [f"{k}: {v if v not in (None, '') else 'unknown'}" for k, v in fields]
     parts = [
-        (PROMPTS_DIR / "analyze.md").read_text(encoding="utf-8").strip(),
-        "## Buyer criteria\n" + (PROMPTS_DIR / "criteria.md").read_text(encoding="utf-8").strip(),
+        (PROMPTS_DIR / "analyze.md").read_text(encoding="utf-8").strip().replace("{region}", region),
+        "## Buyer criteria\n"
+        + (PROMPTS_DIR / "criteria.md").read_text(encoding="utf-8").strip().replace("{region}", region),
         "## Listing\n" + "\n".join(lines),
         "## Description\n" + (listing.description or "(none)"),
         "## Similar listings seen so far (prices, USD)\n"
@@ -207,7 +214,7 @@ def analyze(
             stages = [("triage", ai.triage_model)]
             while stages:
                 stage, model = stages.pop(0)
-                prompt = build_prompt(listing, comparables, stage, photos)
+                prompt = build_prompt(listing, comparables, stage, photos, settings.search.region)
                 res = runner.run(prompt, model, schema, tmp, stage == "judge", ai.timeout_s)
                 try:
                     verdict = Verdict.model_validate(res.output)

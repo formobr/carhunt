@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
-from zoneinfo import ZoneInfo
-
-NY = ZoneInfo("America/New_York")
+from datetime import UTC, datetime, tzinfo
 
 
-def _ny(value: str | None) -> str | None:
+def _local(value: str | None, tz: tzinfo) -> str | None:
     if not value:
         return None
     try:
@@ -18,7 +15,7 @@ def _ny(value: str | None) -> str | None:
         return value
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
-    return dt.astimezone(NY).strftime("%Y-%m-%d %H:%M")
+    return dt.astimezone(tz).strftime("%Y-%m-%d %H:%M")
 
 
 def _loads(text: str | None):
@@ -43,7 +40,7 @@ def _analysis(row) -> dict:
     }
 
 
-def collect(store, now: datetime) -> dict:
+def collect(store, now: datetime, tz: tzinfo = UTC) -> dict:
     db = store.db
     history: dict[int, list[dict]] = {}
     for p in db.execute("SELECT * FROM price_history ORDER BY id"):
@@ -80,9 +77,9 @@ def collect(store, now: datetime) -> dict:
                 "location": r["location"],
                 "seller_type": r["seller_type"],
                 "detected_at": r["detected_at"],
-                "detected_local": _ny(r["detected_at"]),
+                "detected_local": _local(r["detected_at"], tz),
                 "published_at": r["published_at"],
-                "published_local": _ny(r["published_at"]),
+                "published_local": _local(r["published_at"], tz),
                 "verdict": lat["verdict"] if lat else None,
                 "reliability": lat["reliability"] if lat else None,
                 "value": lat["value"] if lat else None,
@@ -95,11 +92,12 @@ def collect(store, now: datetime) -> dict:
         "found": len(listings),
         "analyzed": len(latest),
         "notified": len(notified),
-        "rendered_local": _ny(now.isoformat()),
+        "rendered_local": _local(now.isoformat(), tz),
+        "timezone": str(tz),
         "run": None
         if run is None
         else {
-            "at": _ny(run["finished_at"] or run["started_at"]),
+            "at": _local(run["finished_at"] or run["started_at"], tz),
             "cards": run["cards"],
             "new": run["new"],
             "errors": run["errors"],
@@ -116,8 +114,8 @@ def _embed(data: dict) -> str:
     return text
 
 
-def render_page(store, now: datetime) -> str:
-    return _TEMPLATE.replace("__DATA__", _embed(collect(store, now)))
+def render_page(store, now: datetime, tz: tzinfo = UTC) -> str:
+    return _TEMPLATE.replace("__DATA__", _embed(collect(store, now, tz)))
 
 
 _TEMPLATE = """<!doctype html>
@@ -201,7 +199,7 @@ function bar() {
   if (m.run) parts.push("Последний запуск: " + m.run.at + " (карточек " + m.run.cards +
     ", новых " + m.run.new + ", ошибок " + m.run.errors + ")");
   else parts.push("Запусков ещё не было");
-  parts.push("Страница: " + m.rendered_local + " (Нью-Йорк)");
+  parts.push("Страница: " + m.rendered_local + " (" + m.timezone + ")");
   parts.forEach(function (p) { b.appendChild(el("span", p)); });
 }
 function addList(box, title, items) {

@@ -31,7 +31,7 @@ One alert per listing that passes your bar, with photo and an «Open listing» b
 ```
 
 The text is Russian by default; change the last line of `prompts/analyze.md` to get another language. A daily
-summary (found / analyzed / sent, detection latency, AI calls) arrives at 09:00 New York time, and an alert fires
+summary (found / analyzed / sent, detection latency, AI calls) arrives at 09:00 in `report.timezone`, and an alert fires
 when Facebook returns nothing two runs in a row.
 
 An alert is sent only when the verdict is «worth seeing» **and** reliability ≥ `notify.min_reliability` **and**
@@ -61,7 +61,7 @@ cp .env.example .env
    curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | grep -o '"chat":{"id":[-0-9]*'
    ```
    and put it into `.env` as `TELEGRAM_CHAT_ID`.
-2. **Your search.** Edit `config.yaml` (city, price range, radius) — or override any key from `.env`, see below.
+2. **Your search.** Edit `config.yaml` (city, price range) — or override any key from `.env`, see below.
 3. **Your taste.** `prompts/criteria.md` is what the AI looks for (engine/gearbox preferences, AWD, red flags).
    Rewrite it in plain words for your needs.
 4. **Try one run by hand:**
@@ -85,7 +85,8 @@ An unknown section or key is an error, not a silent no-op.
 |---|---|---|
 | `search.source_city` | `pittsburgh` | Facebook Marketplace city slug (the part after `/marketplace/` in the URL) |
 | `search.min_price` / `max_price` | 300 / 6000 | price range, USD |
-| `search.radius_km` | 65 | search radius |
+| `search.region` | `Pittsburgh, PA` | the area named in the AI prompts |
+| `report.timezone` | `America/New_York` | card times and the daily summary (re-run `deploy/install.sh` after changing it) |
 | `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it) |
 | `poll.max_details_per_run` | 30 | listings opened and rated per run |
 | `poll.detail_delay_s` | `[2, 5]` | random pause between listing pages, seconds |
