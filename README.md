@@ -99,6 +99,28 @@ An unknown section or key is an error, not a silent no-op.
 
 Example: `CARHUNT__SEARCH__MAX_PRICE=8000` and `CARHUNT__NOTIFY__MIN_VALUE=70`.
 
+## Another city
+
+Everything city-specific is in settings (or `.env` overrides):
+
+1. `search.source_city` — open Facebook Marketplace in a browser, pick your city, and copy the part after
+   `/marketplace/` from the URL (e.g. `nyc`, `chicago`, `seattle`, `austin`). Facebook searches its standard area
+   around that city.
+2. `search.region` — how the AI should call your area, e.g. `Austin, TX`. The AI uses it for the local market and
+   climate (for example, whether AWD matters there).
+3. `report.timezone` — your IANA time zone, e.g. `America/Chicago`, `America/Los_Angeles`; then re-run
+   `bash deploy/install.sh` so the daily summary fires at 09:00 your time.
+4. `search.min_price` / `max_price` — your budget.
+5. `prompts/criteria.md` — what you want in a car, in plain words (it is the buyer profile the AI judges by).
+
+```bash
+# .env
+CARHUNT__SEARCH__SOURCE_CITY=austin
+CARHUNT__SEARCH__REGION=Austin, TX
+CARHUNT__REPORT__TIMEZONE=America/Chicago
+CARHUNT__SEARCH__MAX_PRICE=8000
+```
+
 ## Journal
 
 ```bash
