@@ -48,6 +48,7 @@ class NotifySettings:
     price_drop_min_pct: float = 5
     min_reliability: int = 70
     min_value: int = 70
+    min_sum: int = 0  # reliability + value; 0 = off
 
 
 @dataclass(frozen=True)

@@ -156,6 +156,25 @@ def test_thresholds_come_from_settings(env):
     assert [c[0] for c in env.notifier.cards] == ["1"]
 
 
+@pytest.mark.parametrize(
+    ("rel", "val", "sent"),
+    [(66, 58, True), (60, 55, False), (70, 50, True), (100, 19, False)],
+)
+def test_min_sum_gates_alert_on_reliability_plus_value(env, rel, val, sent):
+    from dataclasses import replace
+
+    env.settings = replace(
+        env.settings,
+        notify=replace(
+            env.settings.notify, min_reliability=0, min_value=0, min_sum=120
+        ),
+    )
+    env.analyzer.verdicts["1"] = verdict("worth_seeing", reliability=rel, value=val)
+    env.fetcher.push([card("1")], [listing("1")])
+    env.poll()
+    assert [c[0] for c in env.notifier.cards] == (["1"] if sent else [])
+
+
 def test_same_cards_next_run_no_analysis_no_alert(env):
     first_run(env)
     env.analyzer.calls.clear()

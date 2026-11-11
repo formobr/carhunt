@@ -35,7 +35,7 @@ summary (found / analyzed / sent, detection latency, AI calls) arrives at 09:00 
 when Facebook returns nothing two runs in a row.
 
 An alert is sent only when the verdict is «worth seeing» **and** reliability ≥ `notify.min_reliability` **and**
-value ≥ `notify.min_value`. A price drop of at least $200 / 5 % triggers a re-rating and, if it now passes, a new
+value ≥ `notify.min_value` **and** reliability + value ≥ `notify.min_sum`. A price drop of at least $200 / 5 % triggers a re-rating and, if it now passes, a new
 alert.
 
 ## Requirements
@@ -90,7 +90,8 @@ An unknown section or key is an error, not a silent no-op.
 | `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it) |
 | `poll.max_details_per_run` | 30 | listings opened and rated per run |
 | `poll.detail_delay_s` | `[2, 5]` | random pause between listing pages, seconds |
-| `notify.min_reliability` / `min_value` | 60 / 60 | alert bar, 0–100 |
+| `notify.min_reliability` / `min_value` | 0 / 0 | alert bar, 0–100 |
+| `notify.min_sum` | 120 | alert bar on reliability + value (0 = off) |
 | `notify.price_drop_min_usd` / `_pct` | 200 / 5 | what counts as a price drop |
 | `ai.triage_model` / `judge_model` | `haiku` / `opus` | Claude models for the two stages |
 | `ai.max_photos` | 8 | photos the AI reads per listing |

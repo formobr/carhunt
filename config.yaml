@@ -10,8 +10,9 @@ poll:
 notify:
   price_drop_min_usd: 200
   price_drop_min_pct: 5
-  min_reliability: 55
-  min_value: 55
+  min_reliability: 0
+  min_value: 0
+  min_sum: 120
 ai:
   triage_model: haiku
   judge_model: opus

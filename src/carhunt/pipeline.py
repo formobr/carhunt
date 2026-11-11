@@ -87,6 +87,7 @@ def _qualifies(v: Verdict, settings: Settings) -> bool:
         v.verdict == "worth_seeing"
         and v.reliability >= settings.notify.min_reliability
         and v.value >= settings.notify.min_value
+        and v.reliability + v.value >= settings.notify.min_sum
     )
 
 
