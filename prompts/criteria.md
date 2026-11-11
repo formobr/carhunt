@@ -1,16 +1,11 @@
-We are looking for a cheap, reliable and reasonably economical car for daily driving, with no major repairs expected, that can later be resold without trouble.
+We are looking for an inexpensive, trouble-free car for daily driving: it should start every morning, need only routine maintenance, and be easy to resell later.
 
-- **Preferred:** naturally aspirated engine, classic torque-converter automatic, available parts and maintenance.
-- **Strongly preferred: AWD or 4WD.** The car lives in the buyer's area ({region}): judge AWD/4WD by the local climate and terrain; in snowy or hilly places it is strongly preferred. Count a
-  real AWD/4WD system (Subaru symmetrical AWD, Honda/Toyota AWD crossovers, 4WD trucks/SUVs) as a clear plus for both
-  reliability and value. A FWD car can still be worth seeing only if it is clearly better on price and reliability;
-  then list «передний привод — зимой на холмах и в снег нужны хорошие зимние шины» as a risk. RWD cars (most
-  sedans/trucks without 4WD) are a serious minus. If the drivetrain is not stated, infer it from make/model/trim
-  (e.g. AWD, 4x4, xDrive, 4MATIC, quattro in the trim) and say so; if it cannot be inferred, put it in facts_unknown.
-  Watch the trade-off: many AWD cars come with a CVT or a turbo, judge the whole pairing.
-- **Undesirable:** turbo engines, robotized gearboxes (DCT), CVTs, known-bad engine and gearbox pairings.
-- **Serious red flags:** no title, not running, heavy rust, serious damage, a likely expensive repair.
-- **Judge flexibly:** high mileage or age do not mean automatic rejection if the car is reliable and the price is good.
-- **Scam signs:** price far below market, shipping or deposit requested, seller out of the area, contact only off-platform.
+- **What matters most: a proven powertrain.** Prefer models known to run well past 150-200k miles with ordinary care: Toyota Corolla/Camry/RAV4/Sienna, Honda Civic/Accord/CR-V/Fit (watch the 2003-2007 V6 automatics), Lexus ES/RX, Mazda3/Mazda6 with the 2.0/2.5, Buick/Pontiac with the 3800 V6, Ford Crown Victoria/Mercury Grand Marquis, Toyota/Nissan/Ford trucks with known-good engines. A naturally aspirated engine with a classic torque-converter automatic or a manual is the ideal pairing. Parts should be cheap and any shop able to fix it.
+- **Undesirable:** turbo engines, dual-clutch/robotized gearboxes, CVTs (above all early Nissan/Jatco CVTs), and known-bad pairings (e.g. Hyundai/Kia Theta II 2.4/2.0T, Ford PowerShift, Chrysler 2.7, early Subaru 2.5 head gaskets without proof of repair, BMW/Audi/VW/Mercedes out of warranty at this price).
+- **Drivetrain in {region}:** judge by the local climate and terrain. FWD with good winter tires is a normal, fully acceptable choice; do not lower a FWD car's scores for the drivetrain alone. Real AWD/4WD is a modest plus where winters are snowy or streets are hilly, never a reason to accept a weaker powertrain (many AWD cars at this price come with a CVT or a turbo: judge the whole pairing). A RWD car without 4WD is a minus in snowy, hilly places. If the drivetrain is not stated, infer it from make/model/trim and say so.
+- **Rust:** in places with salted winter roads, rust is the main way cheap cars die. Look hard at the photos for rust on rocker panels, wheel arches, subframes, frame and brake lines; heavy or structural rust is a serious red flag, surface rust on a cheap car is normal.
+- **Serious red flags:** no title or a salvage/rebuilt title without a good reason, not running, warning lights, overheating, slipping transmission, heavy rust, a likely repair costing more than a third of the price.
+- **Judge flexibly:** high mileage or age alone do not mean rejection. A well-kept 180k-mile Camry at a fair price is a good find; a 90k-mile car with a known-bad engine is not.
+- **Scam signs:** price far below market, shipping or a deposit requested, seller out of the area, contact only off-platform.
 
-Consider the engine, gearbox, known weak points, mileage, condition, fuel consumption, expected investment, market value and resale liquidity.
+Score reliability by how likely the car is to run for the next two to three years with only routine maintenance (70+ = a proven model with no visible red flags). Score value by the price against similar cars locally plus the repairs you expect soon (60+ = a fair price for its condition, 75+ = clearly cheap). Consider the engine, gearbox, known weak points, mileage, condition, fuel consumption, expected investment, market value and resale liquidity.
