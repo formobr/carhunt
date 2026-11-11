@@ -1,0 +1,21 @@
+search:
+  source_city: pittsburgh
+  max_price: 6000
+  min_price: 300
+  radius_km: 65
+poll:
+  interval_min: 15
+  max_details_per_run: 30
+  detail_delay_s: [2, 5]
+notify:
+  price_drop_min_usd: 200
+  price_drop_min_pct: 5
+  min_reliability: 60
+  min_value: 60
+ai:
+  triage_model: haiku
+  judge_model: opus
+  max_photos: 8
+  timeout_s: 240
+health:
+  fail_runs_before_alert: 2

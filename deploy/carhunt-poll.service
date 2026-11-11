@@ -1,0 +1,10 @@
+[Unit]
+Description=carhunt: one Facebook Marketplace poll run
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/carhunt
+ExecStart=%h/projects/carhunt/.venv/bin/carhunt poll
+ExecStartPost=-/bin/bash %h/projects/carhunt/deploy/publish-web.sh
+TimeoutStartSec=1500
+Environment=PATH=%h/.local/bin:@CLAUDE_DIR@:/usr/local/bin:/usr/bin:/bin

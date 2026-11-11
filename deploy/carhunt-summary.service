@@ -1,0 +1,8 @@
+[Unit]
+Description=carhunt: daily summary to Telegram
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/projects/carhunt
+ExecStart=%h/projects/carhunt/.venv/bin/carhunt summary
+TimeoutStartSec=120

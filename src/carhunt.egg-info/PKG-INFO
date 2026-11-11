@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: carhunt
+Version: 0.1.0
+Requires-Python: >=3.12
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic>=2.14
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"

@@ -1,0 +1,11 @@
+[Unit]
+Description=carhunt: poll every @INTERVAL_MIN@ minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=@INTERVAL_MIN@min
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

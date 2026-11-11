@@ -1,0 +1,2 @@
+[console_scripts]
+carhunt = carhunt.cli:main
