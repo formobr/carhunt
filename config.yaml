@@ -16,7 +16,7 @@ notify:
 ai:
   triage_model: haiku
   judge_model: opus
-  max_photos: 8
+  max_photos: 20
   timeout_s: 240
 health:
   fail_runs_before_alert: 2

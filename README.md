@@ -94,7 +94,7 @@ An unknown section or key is an error, not a silent no-op.
 | `notify.min_sum` | 120 | alert bar on reliability + value (0 = off) |
 | `notify.price_drop_min_usd` / `_pct` | 200 / 5 | what counts as a price drop |
 | `ai.triage_model` / `judge_model` | `haiku` / `opus` | Claude models for the two stages |
-| `ai.max_photos` | 8 | photos the AI reads per listing |
+| `ai.max_photos` | 20 | photos the AI reads per listing (FB shows up to 20; underbody shots are often last) |
 | `ai.timeout_s` | 240 | per-call deadline |
 | `health.fail_runs_before_alert` | 2 | bad runs in a row before the «Facebook returns nothing» alert |
 
