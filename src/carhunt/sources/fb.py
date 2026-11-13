@@ -6,6 +6,7 @@ page embeds; the visual markup is never parsed.
 
 from __future__ import annotations
 
+import itertools
 import json
 import random
 import re
@@ -54,10 +55,20 @@ class SearchPage:
     blocked: bool = False
 
 
-def search_url(search: SearchSettings) -> str:
+def price_bands(search: SearchSettings) -> list[tuple[int, int]]:
+    """Split min_price..max_price into contiguous equal-width bands (whole dollars)."""
+    n = search.price_bands
+    lo, hi = search.min_price, search.max_price
+    edges = [lo + round((hi - lo) * i / n) for i in range(n + 1)]
+    return list(itertools.pairwise(edges))
+
+
+def search_url(search: SearchSettings, lo: int | None = None, hi: int | None = None) -> str:
+    lo = search.min_price if lo is None else lo
+    hi = search.max_price if hi is None else hi
     return (
         f"https://www.facebook.com/marketplace/{search.source_city}/vehicles"
-        f"?minPrice={search.min_price}&maxPrice={search.max_price}"
+        f"?minPrice={lo}&maxPrice={hi}"
         "&sortBy=creation_time_descend&exact=false"
     )
 
@@ -297,26 +308,35 @@ def fetch_new(
 ) -> FbBatch:
     rng = rng or random.Random()
     batch = FbBatch()
-    try:
-        res = fetcher.get(search_url(settings.search))
-    except httpx.HTTPError as exc:
-        batch.errors.append(f"search: {exc!r}")
-        return batch
-    if res.blocked:
-        batch.blocked = True
-        return batch
-    page = parse_search(res.text)
-    batch.cards = page.cards
-    batch.blocked = page.blocked
-    if page.blocked:
+    lo, hi = settings.poll.detail_delay_s
+    merged: dict[str, Card] = {}
+    bands = price_bands(settings.search)
+    failed = 0
+    for n, (band_lo, band_hi) in enumerate(bands):
+        if n:
+            sleep(rng.uniform(lo, hi))
+        try:
+            res = fetcher.get(search_url(settings.search, band_lo, band_hi))
+        except httpx.HTTPError as exc:
+            failed += 1
+            batch.errors.append(f"search {band_lo}-{band_hi}: {exc!r}")
+            continue
+        page = None if res.blocked else parse_search(res.text)
+        if page is None or page.blocked:
+            batch.blocked = True
+            batch.cards = list(merged.values())
+            return batch
+        for card in page.cards:
+            merged.setdefault(card.source_id, card)
+    batch.cards = list(merged.values())
+    if failed == len(bands):
         return batch
 
     cards = sorted(
-        (c for c in page.cards if c.source_id not in known_ids),
+        (c for c in batch.cards if c.source_id not in known_ids),
         key=lambda c: c.creation_time or datetime.min.replace(tzinfo=UTC),
         reverse=True,
     )[: settings.poll.max_details_per_run]
-    lo, hi = settings.poll.detail_delay_s
     for i, card in enumerate(cards):
         if i:
             sleep(rng.uniform(lo, hi))

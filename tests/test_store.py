@@ -107,7 +107,8 @@ def test_missing_config_keys_take_defaults(tmp_path):
     p.write_text("search:\n  max_price: 7000\n")
     s = load_settings(p)
     assert s.search.max_price == 7000
-    assert s.search.min_price == 300
+    assert s.search.min_price == 2000
+    assert s.search.price_bands == 1
     assert s.poll.detail_delay_s == (2, 5)
     assert s.health.fail_runs_before_alert == 2
 

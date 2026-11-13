@@ -15,9 +15,14 @@ import yaml
 @dataclass(frozen=True)
 class SearchSettings:
     source_city: str = "pittsburgh"
-    max_price: int = 6000
-    min_price: int = 300
+    max_price: int = 7000
+    min_price: int = 2000
+    price_bands: int = 1  # 1 = one search over the whole range
     region: str = "Pittsburgh, PA"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.price_bands, int) or self.price_bands < 1:
+            raise ValueError(f"invalid search.price_bands: {self.price_bands!r} (must be >= 1)")
 
 
 @dataclass(frozen=True)

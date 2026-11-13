@@ -1,8 +1,10 @@
+import itertools
 import json
 import random
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
 
 from carhunt.config import PollSettings, SearchSettings, Settings
@@ -12,6 +14,7 @@ from carhunt.sources.fb import (
     fetch_new,
     parse_item,
     parse_search,
+    price_bands,
     search_url,
 )
 
@@ -204,3 +207,91 @@ def test_fetch_new_login_redirect_blocked():
     fetcher = FakeFetcher("", {}, "https://www.facebook.com/login/?next=x")
     batch = fetch_new(fetcher, Settings(), set(), sleep=lambda s: None)
     assert batch.blocked and batch.cards == [] and len(fetcher.calls) == 1
+
+
+def test_price_bands_contiguous_and_cover_range():
+    s = SearchSettings(min_price=2000, max_price=7000, price_bands=5)
+    assert price_bands(s) == [(2000, 3000), (3000, 4000), (4000, 5000), (5000, 6000), (6000, 7000)]
+    odd = price_bands(SearchSettings(min_price=300, max_price=1000, price_bands=3))
+    assert odd[0][0] == 300 and odd[-1][1] == 1000
+    assert all(a[1] == b[0] for a, b in itertools.pairwise(odd))
+    assert all(lo < hi for lo, hi in odd)
+    assert price_bands(SearchSettings(min_price=2000, max_price=7000)) == [(2000, 7000)]
+
+
+def test_price_bands_must_be_positive():
+    with pytest.raises(ValueError, match="price_bands"):
+        SearchSettings(price_bands=0)
+
+
+def test_search_url_band_override():
+    s = SearchSettings(min_price=2000, max_price=7000)
+    assert "minPrice=3000&maxPrice=4000" in search_url(s, 3000, 4000)
+    assert "minPrice=2000&maxPrice=7000" in search_url(s)
+
+
+class BandFetcher:
+    """Search pages keyed by the band's minPrice: html, an exception, or a final url."""
+
+    def __init__(self, bands):
+        self.bands = bands
+        self.calls = []
+
+    def get(self, url):
+        self.calls.append(url)
+        lo = int(url.split("minPrice=")[1].split("&")[0])
+        res = self.bands[lo]
+        if isinstance(res, Exception):
+            raise res
+        if res.startswith("https://"):
+            return FetchResult(200, res, "")
+        return FetchResult(200, url, res)
+
+
+def _bands_settings(n):
+    return Settings(
+        search=SearchSettings(min_price=2000, max_price=2000 + 1000 * n, price_bands=n),
+        poll=PollSettings(max_details_per_run=0),
+    )
+
+
+def test_fetch_new_merges_bands_without_duplicates():
+    fetcher = BandFetcher(
+        {2000: _search_with(["1", "2"]), 3000: _search_with(["2", "3"]), 4000: _search_with(["4"])}
+    )
+    sleeps = []
+    batch = fetch_new(fetcher, _bands_settings(3), set(), sleep=sleeps.append, rng=random.Random(0))
+    assert len(fetcher.calls) == 3
+    ids = [c.source_id for c in batch.cards]
+    assert len(ids) == 4 and set(ids) == {"1", "2", "3", "4"}
+    assert len(sleeps) == 2 and all(2 <= s <= 5 for s in sleeps)
+    assert not batch.blocked and not batch.errors
+
+
+def test_fetch_new_stops_after_blocked_band():
+    fetcher = BandFetcher(
+        {
+            2000: _search_with(["1"]),
+            3000: "https://www.facebook.com/login/?next=x",
+            4000: _search_with(["4"]),
+        }
+    )
+    batch = fetch_new(fetcher, _bands_settings(3), set(), sleep=lambda s: None)
+    assert batch.blocked
+    assert len(fetcher.calls) == 2
+
+
+def test_fetch_new_band_http_error_does_not_stop_others():
+    fetcher = BandFetcher(
+        {2000: httpx.ConnectError("x"), 3000: _search_with(["3"]), 4000: _search_with(["4"])}
+    )
+    batch = fetch_new(fetcher, _bands_settings(3), set(), sleep=lambda s: None)
+    assert len(fetcher.calls) == 3
+    assert {c.source_id for c in batch.cards} == {"3", "4"}
+    assert len(batch.errors) == 1 and not batch.blocked
+
+
+def test_fetch_new_all_bands_failing_returns_no_cards():
+    fetcher = BandFetcher({2000: httpx.ConnectError("a"), 3000: httpx.ConnectError("b")})
+    batch = fetch_new(fetcher, _bands_settings(2), set(), sleep=lambda s: None)
+    assert batch.cards == [] and batch.listings == [] and len(batch.errors) == 2
