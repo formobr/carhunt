@@ -108,12 +108,14 @@ def test_full_card_keeps_every_item_verbatim_even_when_long():
     )
     card = format_card(make_listing(), v, DETECTED, "new")
     lines = card.splitlines()
-    for group in (v.reasons_for, v.risks, v.questions_for_seller, v.facts_unknown):
+    for group in (v.reasons_for, v.risks, v.questions_for_seller):
         for item in group:
             esc = item.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             assert f"• {esc}" in lines
-    for title in ("Почему:", "Риски:", "⚡ Спросить у продавца:", "Неизвестно:"):
+    for title in ("Почему:", "Риски:", "⚡ Спросить у продавца:"):
         assert title in lines
+    assert "Неизвестно:" not in card
+    assert not any(line.startswith("• u") for line in lines)
     assert "sum &lt;m&gt;" in lines
     assert "Расходы: $500 &lt;c&gt;" in lines
     assert "Рынок: $4000–$5000 (KBB &lt;x&gt;)" in lines

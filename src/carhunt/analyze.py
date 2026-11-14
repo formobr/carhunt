@@ -53,10 +53,23 @@ class Verdict(BaseModel):
     facts_unknown: list[str]
 
 
+MAX_REASONS = 3
+MAX_RISKS = 4
+MAX_QUESTIONS = 4
+MAX_UNKNOWN = 3
+
+
 def _bounded(v: Verdict) -> None:
     for name in ("reliability", "value"):
         if not 0 <= getattr(v, name) <= 100:
             raise ValueError(f"{name} out of range 0-100")
+
+
+def _trim(v: Verdict) -> None:
+    v.reasons_for = v.reasons_for[:MAX_REASONS]
+    v.risks = v.risks[:MAX_RISKS]
+    v.questions_for_seller = v.questions_for_seller[:MAX_QUESTIONS]
+    v.facts_unknown = v.facts_unknown[:MAX_UNKNOWN]
 
 
 def build_prompt(
@@ -221,6 +234,7 @@ def analyze(
                     _bounded(verdict)
                 except (ValidationError, ValueError):
                     raise AnalyzeError(f"{stage}: reply does not match the verdict schema") from None
+                _trim(verdict)
                 store.record_analysis(
                     lid, stage, model, verdict.verdict, verdict.reliability,
                     verdict.value,

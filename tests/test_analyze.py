@@ -110,6 +110,25 @@ def test_malformed_reply_is_not_recorded(env):
     assert store.latest_analysis(1) is None
 
 
+def test_over_long_lists_are_trimmed_not_rejected(env):
+    store, l = env
+    reply = canned(
+        "skip",
+        reasons_for=[f"f{i}" for i in range(6)],
+        risks=[f"r{i}" for i in range(7)],
+        questions_for_seller=[f"q{i}" for i in range(9)],
+        facts_unknown=[f"u{i}" for i in range(8)],
+    )
+    v = analyze(l, store, FakeRunner([reply]), FakeHttp(), Settings(), "new")
+    stored = store.latest_analysis(1)["json"]
+    for got in (stored, v.model_dump()):
+        assert got["reasons_for"] == ["f0", "f1", "f2"]
+        assert got["risks"] == ["r0", "r1", "r2", "r3"]
+        assert got["questions_for_seller"] == ["q0", "q1", "q2", "q3"]
+        assert got["facts_unknown"] == ["u0", "u1", "u2"]
+    assert status(store) == "analyzed"
+
+
 def test_runner_error_leaves_pending(env):
     store, l = env
     with pytest.raises(AnalyzeError):

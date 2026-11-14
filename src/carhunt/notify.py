@@ -114,7 +114,6 @@ def format_card(
     if verdict.needs_clarification_urgent:
         title = "⚡ " + title
     lines += _bullets(title, verdict.questions_for_seller)
-    lines += _bullets("Неизвестно:", verdict.facts_unknown)
     pub = f" (опубл. {_hhmm(listing.published_at, tz)})" if listing.published_at else ""
     lines.append(f"Найдено {_hhmm(detected_at, tz)}{pub}")
     return "\n".join(lines)
