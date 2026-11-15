@@ -21,7 +21,7 @@ ai:
   judge_model: opus
   max_photos: 20
   timeout_s: 240
-  workers: 4
+  workers: 8
 health:
   fail_runs_before_alert: 2
 report:
