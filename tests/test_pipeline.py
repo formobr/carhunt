@@ -229,16 +229,74 @@ def test_failed_analysis_stays_pending_then_succeeds(env):
     assert env.fetcher.known_seen[1] == {"1"}  # pending is not re-fetched
 
 
-def test_pending_capped_by_max_details_per_run(env):
+def test_pending_capped_by_max_details_per_run(env):  # undated: newest id first
     from dataclasses import replace
 
     env.settings = replace(env.settings, poll=replace(env.settings.poll, max_details_per_run=2))
     env.fetcher.push([card(s) for s in "123"], [listing(s) for s in "123"])
     env.poll()
-    assert [c[0] for c in env.analyzer.calls] == ["1", "2"]
+    assert [c[0] for c in env.analyzer.calls] == ["3", "2"]
     env.fetcher.push([card(s) for s in "123"])
     env.poll()
-    assert env.analyzer.calls[-1] == ("3", "new")
+    assert env.analyzer.calls[-1] == ("1", "new")
+
+
+def _dated(sid, hour):
+    item = listing(sid)
+    item.published_at = datetime(2026, 11, 10, hour, 0, tzinfo=UTC)
+    return item
+
+
+def test_newest_published_pending_analyzed_first(env):
+    env.fetcher.push(
+        [card(s) for s in "123"], [_dated("1", 9), _dated("2", 12), _dated("3", 10)]
+    )
+    env.poll()
+    assert [c[0] for c in env.analyzer.calls] == ["2", "3", "1"]
+
+
+def _ticking(env, step_s):
+    from datetime import timedelta
+
+    clock = {"t": NOW}
+    real = env.analyzer
+
+    def analyzer(lst, reason):
+        clock["t"] += timedelta(seconds=step_s)  # each analysis takes step_s
+        return real(lst, reason)
+
+    env.poll = lambda: pipeline.poll(
+        env.settings, env.store, env.fetcher, analyzer, env.notifier,
+        now=lambda: clock["t"], sleep=lambda s: None,
+    )
+
+
+def _with_budget(env, budget):
+    from dataclasses import replace
+
+    env.settings = replace(env.settings, poll=replace(env.settings.poll, analysis_budget_s=budget))
+
+
+def test_analysis_budget_stops_new_analyses_and_keeps_rest_pending(env):
+    _with_budget(env, 100)
+    _ticking(env, 60)  # starts at 0 s and 60 s; at 120 s the budget is spent
+    env.fetcher.push(
+        [card(s) for s in "123"], [_dated("1", 9), _dated("2", 12), _dated("3", 10)]
+    )
+    s = env.poll()
+    assert [c[0] for c in env.analyzer.calls] == ["2", "3"]
+    assert s.analyzed == 2
+    assert len(env.store.pending_analysis()) == 1
+
+
+def test_analysis_budget_zero_means_no_limit(env):
+    _with_budget(env, 0)
+    _ticking(env, 10_000)
+    env.fetcher.push(
+        [card(s) for s in "123"], [_dated("1", 9), _dated("2", 12), _dated("3", 10)]
+    )
+    env.poll()
+    assert [c[0] for c in env.analyzer.calls] == ["2", "3", "1"]
 
 
 def test_failed_price_drop_reanalysis_is_retried(env):

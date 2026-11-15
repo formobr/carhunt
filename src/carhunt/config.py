@@ -58,6 +58,17 @@ class PollSettings:
     interval_min: int = 15
     max_details_per_run: int = 30
     detail_delay_s: tuple[float, float] = (2, 5)
+    analysis_budget_s: int = 600  # stop starting analyses after this; 0 = no budget
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.analysis_budget_s, int)
+            or isinstance(self.analysis_budget_s, bool)
+            or self.analysis_budget_s < 0
+        ):
+            raise ValueError(
+                f"invalid poll.analysis_budget_s: {self.analysis_budget_s!r} (must be >= 0)"
+            )
 
 
 @dataclass(frozen=True)

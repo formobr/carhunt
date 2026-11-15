@@ -192,8 +192,10 @@ class Store:
         return d
 
     def pending_analysis(self) -> list[int]:
+        # newest-published first; undated listings last
         rows = self.db.execute(
-            "SELECT id FROM listings WHERE status IN ('new','pending_analysis') ORDER BY id"
+            "SELECT id FROM listings WHERE status IN ('new','pending_analysis') "
+            "ORDER BY published_at IS NULL, published_at DESC, id DESC"
         ).fetchall()
         return [r["id"] for r in rows]
 

@@ -70,12 +70,19 @@ def test_repost_detected_by_fingerprint(store):
 def test_pending_analysis_and_status(store):
     a = store.upsert_listing(mk("a1"), T0).listing_id
     b = store.upsert_listing(mk("b1", year=2001), T0).listing_id
-    assert store.pending_analysis() == [a, b]
+    assert store.pending_analysis() == [b, a]  # undated: newest id first
     store.set_status(a, "analyzed")
     assert store.pending_analysis() == [b]
     store.record_analysis(a, "quick", "m", "buy", 7, 8, {"k": 1}, 1.5, "new")
     assert store.latest_analysis(a)["json"] == {"k": 1}
     assert store.latest_analysis(b) is None
+
+
+def test_pending_analysis_newest_published_first_undated_last(store):
+    old = store.upsert_listing(mk("o", published_at=T0), T0).listing_id
+    undated = store.upsert_listing(mk("u", year=2001), T0).listing_id
+    new = store.upsert_listing(mk("n", year=2002, published_at=T1), T0).listing_id
+    assert store.pending_analysis() == [new, old, undated]
 
 
 def test_was_notified(store):

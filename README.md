@@ -92,6 +92,7 @@ An unknown section or key is an error, not a silent no-op.
 | `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it) |
 | `poll.max_details_per_run` | 30 | listings opened and rated per run |
 | `poll.detail_delay_s` | `[2, 5]` | random pause between listing pages, seconds |
+| `poll.analysis_budget_s` | 600 | each poll stops starting new AI analyses after this many seconds (newest listings go first; the rest wait for the next poll; 0 = no limit) |
 | `notify.min_reliability` / `min_value` | 0 / 0 | alert bar, 0–100 |
 | `notify.min_sum` | 120 | alert bar on reliability + value (0 = off) |
 | `notify.price_drop_min_usd` / `_pct` | 200 / 5 | what counts as a price drop |

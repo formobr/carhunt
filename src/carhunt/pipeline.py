@@ -186,9 +186,14 @@ def poll(
         _, detected, _ = _load(store, res.listing_id)
         notify(res.listing_id, item, verdict, detected, "price_drop", old)
 
-    # 3. pending analyses, oldest first, capped
+    # 3. pending analyses, newest first, capped, within a time budget
     todo = [i for i in store.pending_analysis() if i not in skip]
+    budget = settings.poll.analysis_budget_s
+    started = now()
     for lid in todo[: settings.poll.max_details_per_run]:
+        if budget > 0 and (now() - started).total_seconds() >= budget:
+            log.info("analysis budget of %ss spent; rest stays pending", budget)
+            break
         listing, detected, _ = _load(store, lid)
         try:
             verdict = analyzer(listing, "new")
