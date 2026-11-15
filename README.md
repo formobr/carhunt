@@ -85,7 +85,8 @@ An unknown section or key is an error, not a silent no-op.
 |---|---|---|
 | `search.source_city` | `pittsburgh` | Facebook Marketplace city slug (the part after `/marketplace/` in the URL) |
 | `search.min_price` / `max_price` | 2000 / 7000 | price range, USD |
-| `search.price_bands` | 5 | the price range is searched in this many equal bands per poll (FB shows only 24 cards per search; more bands = fewer missed listings, more requests) |
+| `search.categories` | vehicles, cars | Marketplace sections searched, each over every price band (each shows FB's own 24-card sample, so the sets differ) |
+| `search.price_bands` | 20 | the price range is searched in this many equal bands per poll (FB shows only 24 cards per search; more bands = fewer missed listings, more requests) |
 | `search.region` | `Pittsburgh, PA` | the area named in the AI prompts |
 | `report.timezone` | `America/New_York` | card times and the daily summary (re-run `deploy/install.sh` after changing it) |
 | `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it) |

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -19,8 +20,20 @@ class SearchSettings:
     min_price: int = 2000
     price_bands: int = 1  # 1 = one search over the whole range
     region: str = "Pittsburgh, PA"
+    categories: tuple[str, ...] = ("vehicles",)
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.categories, tuple)
+            or not self.categories
+            or not all(
+                isinstance(c, str) and re.fullmatch(r"[a-z_]+", c) for c in self.categories
+            )
+        ):
+            raise ValueError(
+                f"invalid search.categories: {self.categories!r} "
+                "(must be a non-empty list of [a-z_] names)"
+            )
         if not isinstance(self.price_bands, int) or self.price_bands < 1:
             raise ValueError(f"invalid search.price_bands: {self.price_bands!r} (must be >= 1)")
 
@@ -94,6 +107,8 @@ def _build(cls: type, name: str, data: Any):
     kwargs = dict(data)
     if "detail_delay_s" in kwargs:
         kwargs["detail_delay_s"] = tuple(kwargs["detail_delay_s"])
+    if "categories" in kwargs and isinstance(kwargs["categories"], list):
+        kwargs["categories"] = tuple(kwargs["categories"])
     return cls(**kwargs)
 
 

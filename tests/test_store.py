@@ -129,6 +129,16 @@ def test_config_env_overrides_apply_with_coercion(tmp_path):
     assert load_settings(p, {}).notify.min_value == 50
 
 
+def test_config_categories_from_yaml_and_env(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text("search:\n  categories: [cars]\n")
+    assert load_settings(p, {}).search.categories == ("cars",)
+    s = load_settings(p, {"CARHUNT__SEARCH__CATEGORIES": "[vehicles, cars]"})
+    assert s.search.categories == ("vehicles", "cars")
+    p.write_text("")
+    assert load_settings(p, {}).search.categories == ("vehicles",)
+
+
 def test_config_env_reads_os_environ_by_default(tmp_path, monkeypatch):
     p = tmp_path / "c.yaml"
     p.write_text("")

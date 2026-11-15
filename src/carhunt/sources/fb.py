@@ -63,11 +63,17 @@ def price_bands(search: SearchSettings) -> list[tuple[int, int]]:
     return list(itertools.pairwise(edges))
 
 
-def search_url(search: SearchSettings, lo: int | None = None, hi: int | None = None) -> str:
+def search_url(
+    search: SearchSettings,
+    lo: int | None = None,
+    hi: int | None = None,
+    category: str | None = None,
+) -> str:
     lo = search.min_price if lo is None else lo
     hi = search.max_price if hi is None else hi
+    category = search.categories[0] if category is None else category
     return (
-        f"https://www.facebook.com/marketplace/{search.source_city}/vehicles"
+        f"https://www.facebook.com/marketplace/{search.source_city}/{category}"
         f"?minPrice={lo}&maxPrice={hi}"
         "&sortBy=creation_time_descend&exact=false"
     )
@@ -311,15 +317,16 @@ def fetch_new(
     lo, hi = settings.poll.detail_delay_s
     merged: dict[str, Card] = {}
     bands = price_bands(settings.search)
+    pairs = [(c, b) for c in settings.search.categories for b in bands]
     failed = 0
-    for n, (band_lo, band_hi) in enumerate(bands):
+    for n, (category, (band_lo, band_hi)) in enumerate(pairs):
         if n:
             sleep(rng.uniform(lo, hi))
         try:
-            res = fetcher.get(search_url(settings.search, band_lo, band_hi))
+            res = fetcher.get(search_url(settings.search, band_lo, band_hi, category))
         except httpx.HTTPError as exc:
             failed += 1
-            batch.errors.append(f"search {band_lo}-{band_hi}: {exc!r}")
+            batch.errors.append(f"search {category} {band_lo}-{band_hi}: {exc!r}")
             continue
         page = None if res.blocked else parse_search(res.text)
         if page is None or page.blocked:
@@ -329,7 +336,7 @@ def fetch_new(
         for card in page.cards:
             merged.setdefault(card.source_id, card)
     batch.cards = list(merged.values())
-    if failed == len(bands):
+    if failed == len(pairs):
         return batch
 
     cards = sorted(

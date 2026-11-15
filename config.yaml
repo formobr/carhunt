@@ -2,7 +2,8 @@ search:
   source_city: pittsburgh
   max_price: 7000
   min_price: 2000
-  price_bands: 5
+  price_bands: 20
+  categories: [vehicles, cars]
   region: Pittsburgh, PA
 poll:
   interval_min: 15

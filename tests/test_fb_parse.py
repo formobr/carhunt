@@ -291,6 +291,113 @@ def test_fetch_new_band_http_error_does_not_stop_others():
     assert len(batch.errors) == 1 and not batch.blocked
 
 
+def test_search_url_category():
+    s = SearchSettings(source_city="pittsburgh", min_price=300, max_price=6000,
+                       categories=("cars", "vehicles"))
+    assert "/marketplace/pittsburgh/cars?minPrice=300" in search_url(s)
+    assert "/marketplace/pittsburgh/vehicles?minPrice=1&maxPrice=2" in search_url(
+        s, 1, 2, "vehicles"
+    )
+
+
+@pytest.mark.parametrize("bad", [(), ("../x",), ("",), ("Cars",), ("cars", "a b"), (1,)])
+def test_categories_rejected(bad):
+    with pytest.raises(ValueError, match="categories"):
+        SearchSettings(categories=bad)
+
+
+class CategoryFetcher:
+    """Search pages keyed by (category, band minPrice): html, an exception, or a final url."""
+
+    def __init__(self, pages):
+        self.pages = pages
+        self.calls = []
+
+    def get(self, url):
+        self.calls.append(url)
+        category = url.split("/marketplace/")[1].split("/")[1].split("?")[0]
+        lo = int(url.split("minPrice=")[1].split("&")[0])
+        res = self.pages[(category, lo)]
+        if isinstance(res, Exception):
+            raise res
+        if res.startswith("https://"):
+            return FetchResult(200, res, "")
+        return FetchResult(200, url, res)
+
+
+def _cat_settings(n):
+    return Settings(
+        search=SearchSettings(
+            min_price=2000,
+            max_price=2000 + 1000 * n,
+            price_bands=n,
+            categories=("vehicles", "cars"),
+        ),
+        poll=PollSettings(max_details_per_run=0),
+    )
+
+
+def test_fetch_new_searches_every_category_band_pair_and_dedups():
+    fetcher = CategoryFetcher(
+        {
+            ("vehicles", 2000): _search_with(["1", "2"]),
+            ("vehicles", 3000): _search_with(["3"]),
+            ("cars", 2000): _search_with(["2", "4"]),
+            ("cars", 3000): _search_with(["5"]),
+        }
+    )
+    sleeps = []
+    batch = fetch_new(fetcher, _cat_settings(2), set(), sleep=sleeps.append, rng=random.Random(0))
+    order = [
+        (u.split("/marketplace/")[1].split("/")[1].split("?")[0], u.split("minPrice=")[1][:4])
+        for u in fetcher.calls
+    ]
+    assert order == [("vehicles", "2000"), ("vehicles", "3000"), ("cars", "2000"), ("cars", "3000")]
+    ids = [c.source_id for c in batch.cards]
+    assert len(ids) == 5 and set(ids) == {"1", "2", "3", "4", "5"}
+    assert len(sleeps) == 3 and all(2 <= s <= 5 for s in sleeps)
+    assert not batch.blocked and not batch.errors
+
+
+def test_fetch_new_stops_after_blocked_page_in_second_category():
+    fetcher = CategoryFetcher(
+        {
+            ("vehicles", 2000): _search_with(["1"]),
+            ("vehicles", 3000): _search_with(["2"]),
+            ("cars", 2000): "https://www.facebook.com/login/?next=x",
+            ("cars", 3000): _search_with(["9"]),
+        }
+    )
+    batch = fetch_new(fetcher, _cat_settings(2), set(), sleep=lambda s: None)
+    assert batch.blocked
+    assert len(fetcher.calls) == 3
+    assert {c.source_id for c in batch.cards} == {"1", "2"}
+
+
+def test_fetch_new_all_pairs_failing_returns_no_cards_and_one_failed_pair_does_not():
+    err = httpx.ConnectError("x")
+    fetcher = CategoryFetcher(
+        {("vehicles", 2000): err, ("vehicles", 3000): err, ("cars", 2000): err, ("cars", 3000): err}
+    )
+    settings = Settings(
+        search=SearchSettings(
+            min_price=2000, max_price=4000, price_bands=2, categories=("vehicles", "cars")
+        ),
+        poll=PollSettings(max_details_per_run=5),
+    )
+    batch = fetch_new(fetcher, settings, set(), sleep=lambda s: None)
+    assert batch.cards == [] and batch.listings == [] and len(batch.errors) == 4
+    assert len(fetcher.calls) == 4  # no item fetches
+
+    fetcher = CategoryFetcher(
+        {("vehicles", 2000): err, ("vehicles", 3000): err, ("cars", 2000): err,
+         ("cars", 3000): _search_with(["7"])}
+    )
+    batch = fetch_new(fetcher, _cat_settings(2), set(), sleep=lambda s: None)
+    assert [c.source_id for c in batch.cards] == ["7"]
+    assert len(batch.errors) == 3
+
+
 def test_fetch_new_all_bands_failing_returns_no_cards():
     fetcher = BandFetcher({2000: httpx.ConnectError("a"), 3000: httpx.ConnectError("b")})
     batch = fetch_new(fetcher, _bands_settings(2), set(), sleep=lambda s: None)
