@@ -197,13 +197,10 @@ def download_photos(urls: list[str], dir: str | Path, client: Any, max_photos: i
 
 
 def _listing_id(listing: Listing, store: Store) -> int:
-    row = store.db.execute(
-        "SELECT id FROM listings WHERE source=? AND source_id=?",
-        (listing.source, listing.source_id),
-    ).fetchone()
-    if row is None:
+    lid = store.listing_id(listing.source, listing.source_id)
+    if lid is None:
         raise AnalyzeError("listing is not in the store")
-    return row["id"]
+    return lid
 
 
 def analyze(

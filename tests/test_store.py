@@ -85,6 +85,21 @@ def test_pending_analysis_newest_published_first_undated_last(store):
     assert store.pending_analysis() == [new, old, undated]
 
 
+def test_store_is_safe_to_call_from_several_threads(store):
+    from concurrent.futures import ThreadPoolExecutor
+
+    lid = store.upsert_listing(mk(), T0).listing_id
+
+    def work(_):
+        for _ in range(25):
+            store.record_analysis(lid, "triage", "m", "skip", 1.0, 1.0, {"k": 1}, 0.1, "r")
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(work, range(4)))  # re-raises any worker exception
+    n = store.db.execute("SELECT COUNT(*) FROM analyses WHERE listing_id=?", (lid,)).fetchone()[0]
+    assert n == 100
+
+
 def test_was_notified(store):
     a = store.upsert_listing(mk(), T0).listing_id
     assert not store.was_notified(a)

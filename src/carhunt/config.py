@@ -91,6 +91,15 @@ class AiSettings:
     judge_model: str = "opus"
     max_photos: int = 8
     timeout_s: float = 240
+    workers: int = 1  # analyses run at the same time in one poll
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.workers, int)
+            or isinstance(self.workers, bool)
+            or self.workers < 1
+        ):
+            raise ValueError(f"invalid ai.workers: {self.workers!r} (must be >= 1)")
 
 
 @dataclass(frozen=True)

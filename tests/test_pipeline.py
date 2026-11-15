@@ -68,9 +68,7 @@ class FakeAnalyzer:
 
     def __call__(self, lst, reason):
         self.calls.append((lst.source_id, reason))
-        lid = self.store.db.execute(
-            "SELECT id FROM listings WHERE source_id=?", (lst.source_id,)
-        ).fetchone()["id"]
+        lid = self.store.listing_id(lst.source, lst.source_id)
         if lst.source_id in self.fail:
             self.store.set_status(lid, "pending_analysis")
             raise AnalyzeError("boom")
@@ -297,6 +295,125 @@ def test_analysis_budget_zero_means_no_limit(env):
     )
     env.poll()
     assert [c[0] for c in env.analyzer.calls] == ["2", "3", "1"]
+
+
+def _with_workers(env, n):
+    from dataclasses import replace
+
+    env.settings = replace(env.settings, ai=replace(env.settings.ai, workers=n))
+
+
+def _push_dated(env, n):
+    ids = [str(i) for i in range(1, n + 1)]
+    env.fetcher.push([card(s) for s in ids], [_dated(s, 8 + int(s)) for s in ids])
+
+
+def test_workers_run_analyses_concurrently(env):
+    import threading
+
+    _with_workers(env, 3)
+    barrier = threading.Barrier(3, timeout=5)  # breaks unless 3 run at once
+    real = env.analyzer
+
+    def analyzer(lst, reason):
+        barrier.wait()
+        return real(lst, reason)
+
+    env.poll = lambda: pipeline.poll(
+        env.settings, env.store, env.fetcher, analyzer, env.notifier,
+        now=lambda: NOW, sleep=lambda s: None,
+    )
+    _push_dated(env, 3)
+    s = env.poll()
+    assert (s.analyzed, s.errors) == (3, 0)
+
+
+def test_notifications_are_sent_from_the_main_thread(env):
+    import threading
+
+    _with_workers(env, 3)
+    seen = []
+    send_card = env.notifier.send_card
+
+    def spy(*args, **kwargs):
+        seen.append(threading.current_thread())
+        return send_card(*args, **kwargs)
+
+    env.notifier.send_card = spy
+    for sid in "123":
+        env.analyzer.verdicts[sid] = verdict("worth_seeing")
+    _push_dated(env, 3)
+    env.poll()
+    assert len(seen) == 3
+    assert set(seen) == {threading.main_thread()}
+
+
+def test_budget_spent_submits_nothing_new_but_running_finish(env):
+    import threading
+
+    _with_workers(env, 2)
+    _with_budget(env, 100)
+    spent = threading.Event()
+    barrier = threading.Barrier(2, timeout=5)  # both submitted before the budget is spent
+    real = env.analyzer
+
+    def analyzer(lst, reason):
+        barrier.wait()
+        spent.set()
+        return real(lst, reason)
+
+    from datetime import timedelta
+
+    env.poll = lambda: pipeline.poll(
+        env.settings, env.store, env.fetcher, analyzer, env.notifier,
+        now=lambda: NOW + timedelta(seconds=1000 if spent.is_set() else 0),
+        sleep=lambda s: None,
+    )
+    _push_dated(env, 4)
+    s = env.poll()
+    assert sorted(c[0] for c in env.analyzer.calls) == ["3", "4"]
+    assert s.analyzed == 2
+    assert len(env.store.pending_analysis()) == 2
+
+
+def test_one_failing_worker_keeps_the_other_results(env):
+    _with_workers(env, 3)
+    env.analyzer.fail.add("2")
+    for sid in "13":
+        env.analyzer.verdicts[sid] = verdict("worth_seeing")
+    _push_dated(env, 3)
+    s = env.poll()
+    assert (s.analyzed, s.errors) == (2, 1)
+    assert sorted(c[0] for c in env.notifier.cards) == ["1", "3"]
+    assert len(env.store.pending_analysis()) == 1
+
+
+def test_single_worker_runs_one_at_a_time_newest_first(env):
+    import threading
+
+    assert env.settings.ai.workers == 1
+    lock = threading.Lock()
+    state = {"now": 0, "max": 0}
+    real = env.analyzer
+
+    def analyzer(lst, reason):
+        with lock:
+            state["now"] += 1
+            state["max"] = max(state["max"], state["now"])
+        try:
+            return real(lst, reason)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    env.poll = lambda: pipeline.poll(
+        env.settings, env.store, env.fetcher, analyzer, env.notifier,
+        now=lambda: NOW, sleep=lambda s: None,
+    )
+    _push_dated(env, 3)
+    env.poll()
+    assert state["max"] == 1
+    assert [c[0] for c in real.calls] == ["3", "2", "1"]
 
 
 def test_failed_price_drop_reanalysis_is_retried(env):

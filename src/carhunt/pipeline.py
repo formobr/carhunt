@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -190,19 +191,36 @@ def poll(
     todo = [i for i in store.pending_analysis() if i not in skip]
     budget = settings.poll.analysis_budget_s
     started = now()
-    for lid in todo[: settings.poll.max_details_per_run]:
-        if budget > 0 and (now() - started).total_seconds() >= budget:
-            log.info("analysis budget of %ss spent; rest stays pending", budget)
-            break
-        listing, detected, _ = _load(store, lid)
-        try:
-            verdict = analyzer(listing, "new")
-        except AnalyzeError as exc:
-            log.warning("analysis failed for %s: %s", lid, exc)
-            summary.errors += 1
-            continue
-        summary.analyzed += 1
-        notify(lid, listing, verdict, detected, "new")
+    queue = iter(todo[: settings.poll.max_details_per_run])
+    running: dict[Future, tuple[int, Listing, datetime]] = {}
+    exhausted = False
+    with ThreadPoolExecutor(max_workers=settings.ai.workers) as pool:
+        while True:
+            # submit while there is a free worker and budget left
+            while not exhausted and len(running) < settings.ai.workers:
+                if budget > 0 and (now() - started).total_seconds() >= budget:
+                    log.info("analysis budget of %ss spent; rest stays pending", budget)
+                    exhausted = True
+                    break
+                lid = next(queue, None)
+                if lid is None:
+                    exhausted = True
+                    break
+                listing, detected, _ = _load(store, lid)
+                running[pool.submit(analyzer, listing, "new")] = (lid, listing, detected)
+            if not running:
+                break
+            done, _ = wait(running, return_when=FIRST_COMPLETED)
+            for fut in done:
+                lid, listing, detected = running.pop(fut)
+                try:
+                    verdict = fut.result()
+                except AnalyzeError as exc:
+                    log.warning("analysis failed for %s: %s", lid, exc)
+                    summary.errors += 1
+                    continue
+                summary.analyzed += 1
+                notify(lid, listing, verdict, detected, "new")
 
     store.finish_run(run_id, summary.cards, summary.new, summary.errors, None)
     _health(settings, store, notifier, summary)

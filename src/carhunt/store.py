@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -97,20 +99,43 @@ def _utcnow_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _locked(fn):
+    """Run a Store method holding the store's lock for its whole body."""
+
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return fn(self, *args, **kwargs)
+
+    return wrapper
+
+
 class Store:
     def __init__(self, path: str | Path):
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(str(p))
+        # one connection shared by worker threads; self.lock serialises its use
+        self.lock = threading.RLock()
+        self.db = sqlite3.connect(str(p), check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
         self.db.commit()
 
+    @_locked
     def close(self) -> None:
         self.db.close()
 
+    @_locked
+    def listing_id(self, source: str, source_id: str) -> int | None:
+        row = self.db.execute(
+            "SELECT id FROM listings WHERE source=? AND source_id=?",
+            (source, source_id),
+        ).fetchone()
+        return None if row is None else row["id"]
+
+    @_locked
     def upsert_listing(self, l: Listing, now: datetime) -> UpsertResult:
         now_s = _iso(now)
         row = self.db.execute(
@@ -156,6 +181,7 @@ class Store:
             )
         return UpsertResult(lid, True, None, repost_of)
 
+    @_locked
     def record_analysis(
         self,
         listing_id: int,
@@ -180,6 +206,7 @@ class Store:
             )
         return cur.lastrowid
 
+    @_locked
     def latest_analysis(self, listing_id: int) -> dict | None:
         row = self.db.execute(
             "SELECT * FROM analyses WHERE listing_id=? ORDER BY id DESC LIMIT 1",
@@ -191,6 +218,7 @@ class Store:
         d["json"] = json.loads(d["json"]) if d["json"] else None
         return d
 
+    @_locked
     def pending_analysis(self) -> list[int]:
         # newest-published first; undated listings last
         rows = self.db.execute(
@@ -199,12 +227,14 @@ class Store:
         ).fetchall()
         return [r["id"] for r in rows]
 
+    @_locked
     def set_status(self, listing_id: int, status: str) -> None:
         with self.db:
             self.db.execute(
                 "UPDATE listings SET status=? WHERE id=?", (status, listing_id)
             )
 
+    @_locked
     def record_notification(self, listing_id: int, message_id: int | None) -> None:
         with self.db:
             self.db.execute(
@@ -212,6 +242,7 @@ class Store:
                 (listing_id, _utcnow_iso(), message_id),
             )
 
+    @_locked
     def was_notified(self, listing_id: int) -> bool:
         return (
             self.db.execute(
@@ -220,6 +251,7 @@ class Store:
             is not None
         )
 
+    @_locked
     def start_run(self, source: str) -> int:
         with self.db:
             cur = self.db.execute(
@@ -228,6 +260,7 @@ class Store:
             )
         return cur.lastrowid
 
+    @_locked
     def finish_run(
         self, run_id: int, cards: int, new: int, errors: int, note: str | None = None
     ) -> None:
@@ -237,12 +270,14 @@ class Store:
                 (_utcnow_iso(), cards, new, errors, note, run_id),
             )
 
+    @_locked
     def recent_runs(self, n: int = 10) -> list[dict]:
         rows = self.db.execute(
             "SELECT * FROM runs ORDER BY id DESC LIMIT ?", (n,)
         ).fetchall()
         return [dict(r) for r in rows]
 
+    @_locked
     def similar_prices(
         self, make: str, model: str, year: int, window: int = 2
     ) -> list[int]:
