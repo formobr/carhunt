@@ -56,7 +56,9 @@ def test_install_renders_units_and_enables_timers(tmp_path):
         assert "@INTERVAL_MIN@" not in text
         assert "@TIMEZONE@" not in text
 
-    assert "OnUnitActiveSec=15min" in (dest / "carhunt-poll.timer").read_text()
+    poll_timer = (dest / "carhunt-poll.timer").read_text()
+    assert "OnCalendar=*:0/15" in poll_timer
+    assert "OnUnitActiveSec" not in poll_timer
     assert "09:00:00 America/New_York" in (dest / "carhunt-summary.timer").read_text()
     assert str(bin_dir) in (dest / "carhunt-poll.service").read_text()
 
@@ -73,6 +75,14 @@ def test_install_renders_summary_timer_in_report_timezone(tmp_path):
     timer = (tmp_path / "systemd" / "user" / "carhunt-summary.timer").read_text()
     assert "OnCalendar=*-*-* 09:00:00 America/Los_Angeles" in timer
     assert "New_York" not in timer
+
+
+def test_install_refuses_interval_not_dividing_60(tmp_path):
+    proc, _, calls = _run("install.sh", tmp_path, {"CARHUNT__POLL__INTERVAL_MIN": "7"})
+    assert proc.returncode == 1
+    assert "poll.interval_min" in proc.stderr
+    assert not (tmp_path / "systemd" / "user" / "carhunt-poll.timer").exists()
+    assert not calls.exists()
 
 
 def test_uninstall_removes_units(tmp_path):

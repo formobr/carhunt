@@ -3,7 +3,10 @@ Description=carhunt: poll every @INTERVAL_MIN@ minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=@INTERVAL_MIN@min
+# Wall-clock start every interval minutes. A run still in progress when the
+# timer fires is not doubled: systemd does not start an already-activating unit.
+OnCalendar=*:0/@INTERVAL_MIN@
+AccuracySec=1s
 RandomizedDelaySec=60
 Persistent=true
 

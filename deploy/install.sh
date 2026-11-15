@@ -17,6 +17,13 @@ interval="$(cd "$root" && PYTHONPATH="$root/src" .venv/bin/python -c 'from carhu
 case "$interval" in
     ''|*[!0-9]*) interval=15 ;;
 esac
+case "$interval" in
+    1|2|3|4|5|6|10|12|15|20|30|60) ;;
+    *)
+        echo "install.sh: poll.interval_min=$interval must divide 60 (one of 1,2,3,4,5,6,10,12,15,20,30,60)" >&2
+        exit 1
+        ;;
+esac
 
 timezone="$(cd "$root" && PYTHONPATH="$root/src" .venv/bin/python -c 'from carhunt.config import load_settings; print(load_settings().report.timezone)' 2>/dev/null || true)"
 case "$timezone" in

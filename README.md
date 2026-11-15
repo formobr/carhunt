@@ -89,7 +89,7 @@ An unknown section or key is an error, not a silent no-op.
 | `search.price_bands` | 20 | the price range is searched in this many equal bands per poll (FB shows only 24 cards per search; more bands = fewer missed listings, more requests) |
 | `search.region` | `Pittsburgh, PA` | the area named in the AI prompts |
 | `report.timezone` | `America/New_York` | card times and the daily summary (re-run `deploy/install.sh` after changing it) |
-| `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it) |
+| `poll.interval_min` | 15 | timer interval (re-run `deploy/install.sh` after changing it); must divide 60 (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60) — runs start on the clock (e.g. :00, :15, :30, :45), not interval minutes after the previous run ends |
 | `poll.max_details_per_run` | 30 | listings opened and rated per run |
 | `poll.detail_delay_s` | `[2, 5]` | random pause between listing pages, seconds |
 | `poll.analysis_budget_s` | 600 | each poll stops starting new AI analyses after this many seconds (newest listings go first; the rest wait for the next poll; 0 = no limit) |
