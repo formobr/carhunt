@@ -206,7 +206,7 @@ def test_fetch_new_item_error_recorded():
 def test_fetch_new_login_redirect_blocked():
     fetcher = FakeFetcher("", {}, "https://www.facebook.com/login/?next=x")
     batch = fetch_new(fetcher, Settings(), set(), sleep=lambda s: None)
-    assert batch.blocked and batch.cards == [] and len(fetcher.calls) == 1
+    assert batch.blocked and batch.cards == [] and len(fetcher.calls) <= 3
 
 
 def test_price_bands_contiguous_and_cover_range():
@@ -268,17 +268,41 @@ def test_fetch_new_merges_bands_without_duplicates():
     assert not batch.blocked and not batch.errors
 
 
-def test_fetch_new_stops_after_blocked_band():
+_WALL = "https://www.facebook.com/login/?next=x"
+
+
+def test_fetch_new_one_walled_band_keeps_other_cards():
+    fetcher = BandFetcher(
+        {2000: _search_with(["1"]), 3000: _WALL, 4000: _search_with(["4"])}
+    )
+    batch = fetch_new(fetcher, _bands_settings(3), set(), sleep=lambda s: None)
+    assert not batch.blocked
+    assert len(fetcher.calls) == 3
+    assert {c.source_id for c in batch.cards} == {"1", "4"}
+    assert len(batch.errors) == 1 and "walled" in batch.errors[0]
+
+
+def test_fetch_new_backs_off_after_three_consecutive_walls():
     fetcher = BandFetcher(
         {
             2000: _search_with(["1"]),
-            3000: "https://www.facebook.com/login/?next=x",
-            4000: _search_with(["4"]),
+            3000: _WALL,
+            4000: _WALL,
+            5000: _WALL,
+            6000: _search_with(["6"]),
         }
     )
+    batch = fetch_new(fetcher, _bands_settings(5), set(), sleep=lambda s: None)
+    assert len(fetcher.calls) == 4
+    assert {c.source_id for c in batch.cards} == {"1"}
+    assert not batch.blocked
+    assert len(batch.errors) == 3
+
+
+def test_fetch_new_all_walled_is_blocked():
+    fetcher = BandFetcher({2000: _WALL, 3000: _WALL, 4000: _WALL})
     batch = fetch_new(fetcher, _bands_settings(3), set(), sleep=lambda s: None)
-    assert batch.blocked
-    assert len(fetcher.calls) == 2
+    assert batch.blocked and batch.cards == []
 
 
 def test_fetch_new_band_http_error_does_not_stop_others():
@@ -359,7 +383,7 @@ def test_fetch_new_searches_every_category_band_pair_and_dedups():
     assert not batch.blocked and not batch.errors
 
 
-def test_fetch_new_stops_after_blocked_page_in_second_category():
+def test_fetch_new_walled_page_in_second_category_continues():
     fetcher = CategoryFetcher(
         {
             ("vehicles", 2000): _search_with(["1"]),
@@ -369,9 +393,10 @@ def test_fetch_new_stops_after_blocked_page_in_second_category():
         }
     )
     batch = fetch_new(fetcher, _cat_settings(2), set(), sleep=lambda s: None)
-    assert batch.blocked
-    assert len(fetcher.calls) == 3
-    assert {c.source_id for c in batch.cards} == {"1", "2"}
+    assert not batch.blocked
+    assert len(fetcher.calls) == 4
+    assert {c.source_id for c in batch.cards} == {"1", "2", "9"}
+    assert len(batch.errors) == 1 and "walled" in batch.errors[0]
 
 
 def test_fetch_new_all_pairs_failing_returns_no_cards_and_one_failed_pair_does_not():

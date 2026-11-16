@@ -305,6 +305,9 @@ class FbBatch:
     errors: list[str] = field(default_factory=list)
 
 
+_MAX_WALLED_STREAK = 3  # consecutive walled search pages before backing off
+
+
 def fetch_new(
     fetcher: Fetcher,
     settings: Settings,
@@ -319,6 +322,8 @@ def fetch_new(
     bands = price_bands(settings.search)
     pairs = [(c, b) for c in settings.search.categories for b in bands]
     failed = 0
+    walled = 0
+    streak = 0
     for n, (category, (band_lo, band_hi)) in enumerate(pairs):
         if n:
             sleep(rng.uniform(lo, hi))
@@ -326,16 +331,24 @@ def fetch_new(
             res = fetcher.get(search_url(settings.search, band_lo, band_hi, category))
         except httpx.HTTPError as exc:
             failed += 1
+            streak = 0
             batch.errors.append(f"search {category} {band_lo}-{band_hi}: {exc!r}")
             continue
         page = None if res.blocked else parse_search(res.text)
         if page is None or page.blocked:
-            batch.blocked = True
-            batch.cards = list(merged.values())
-            return batch
+            walled += 1
+            streak += 1
+            batch.errors.append(f"search {category} {band_lo}-{band_hi}: walled")
+            if streak >= _MAX_WALLED_STREAK:
+                break
+            continue
+        streak = 0
         for card in page.cards:
             merged.setdefault(card.source_id, card)
     batch.cards = list(merged.values())
+    if walled and not batch.cards:
+        batch.blocked = True
+        return batch
     if failed == len(pairs):
         return batch
 
